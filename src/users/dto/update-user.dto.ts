@@ -1,14 +1,4 @@
-import { Optional } from '@nestjs/common';
+import { PartialType } from '@nestjs/swagger';
+import { CreateUserDto } from './create-user.dto';
 
-export class UpdateUserDto {
-  @Optional()
-  username: string;
-  @Optional()
-  about: string;
-  @Optional()
-  avatar: string;
-  @Optional()
-  email: string;
-  @Optional()
-  password: string;
-}
+export class UpdateUserDto extends PartialType(CreateUserDto) {}

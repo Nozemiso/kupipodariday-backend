@@ -9,8 +9,6 @@ import {
   ParseUUIDPipe,
   Req,
   UseGuards,
-  ForbiddenException,
-  NotFoundException,
 } from '@nestjs/common';
 import { WishesService } from './wishes.service';
 import { CreateWishDto } from './dto/create-wish.dto';
@@ -32,33 +30,17 @@ export class WishesController {
 
   @Get('last')
   getLast(): Promise<Wish[]> {
-    return this.wishesService.findMany({
-      relations: ['owner'],
-      order: { createdAt: 'desc' },
-      take: 40,
-    });
+    return this.wishesService.getLast();
   }
 
   @Get('top')
   getTop(): Promise<Wish[]> {
-    return this.wishesService.findMany({
-      relations: ['owner'],
-      order: { copied: 'DESC' },
-      take: 20,
-    });
+    return this.wishesService.getTop();
   }
 
   @Get(':id')
   findById(@Param('id', new ParseUUIDPipe()) id: string): Promise<Wish> {
-    return this.wishesService
-      .findOne({
-        where: { id: id },
-        relations: ['owner', 'offers', 'offers.user'],
-      })
-      .then((wish) => {
-        if (!wish) throw new NotFoundException();
-        else return wish;
-      });
+    return this.wishesService.findById(id);
   }
 
   @UseGuards(JwtGuard)
@@ -68,47 +50,18 @@ export class WishesController {
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() updateWishDto: UpdateWishDto,
   ) {
-    return this.wishesService
-      .findOne({ where: { id: id }, relations: ['owner'] })
-      .then((wish) => {
-        if (!wish) throw new NotFoundException();
-        else if (wish.owner.id !== req.user.id) throw new ForbiddenException();
-        else if (wish.raised > 0) throw new ForbiddenException();
-        else return this.wishesService.updateOne({ id: id }, updateWishDto);
-      });
+    return this.wishesService.updateById(id, req.user.id, updateWishDto);
   }
 
   @UseGuards(JwtGuard)
   @Delete(':id')
   remove(@Req() req, @Param('id', new ParseUUIDPipe()) id: string) {
-    return this.wishesService
-      .findOne({ where: { id: id }, relations: ['owner'] })
-      .then((wish) => {
-        if (!wish) throw new NotFoundException();
-        else if (wish.owner.id !== req.user.id) throw new ForbiddenException();
-        else if (wish.raised > 0) throw new ForbiddenException();
-        return this.wishesService.deleteOne({ id });
-      });
+    return this.wishesService.deleteOneById(id, req.user.id);
   }
 
   @UseGuards(JwtGuard)
   @Post(':id/copy')
   copy(@Req() req, @Param('id', new ParseUUIDPipe()) id: string) {
-    return this.wishesService.findOne({ where: { id: id } }).then((wish) => {
-      if (!wish) throw new NotFoundException();
-      else {
-        const newWish = {
-          name: wish.name,
-          link: wish.link,
-          image: wish.image,
-          price: wish.price,
-          description: wish.description,
-          owner: req.user.id,
-        };
-        console.log(wish as CreateWishDto);
-        this.wishesService.incCopies(wish.id);
-        return this.wishesService.create(newWish);
-      }
-    });
+    return this.wishesService.copy(id, req.user.id);
   }
 }

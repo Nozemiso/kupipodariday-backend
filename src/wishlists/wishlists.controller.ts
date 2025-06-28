@@ -9,9 +9,6 @@ import {
   ParseUUIDPipe,
   Req,
   UseGuards,
-  BadRequestException,
-  NotFoundException,
-  ForbiddenException,
 } from '@nestjs/common';
 import { WishlistsService } from './wishlists.service';
 import { CreateWishlistDto } from './dto/create-wishlist.dto';
@@ -37,60 +34,39 @@ export class WishlistsController {
     @Req() req,
     @Body() createWishlistDto: CreateWishlistDto,
   ): Promise<Wishlist> {
-    return this.wishlistsService
-      .create({
-        ...createWishlistDto,
-        items: createWishlistDto.itemsId.map((itemUUID: string) => {
-          return { id: itemUUID } as Wish;
-        }),
-        owner: req.user.id,
-      })
-      .catch(() => {
-        throw new BadRequestException();
-      });
+    return this.wishlistsService.create({
+      ...createWishlistDto,
+      items: createWishlistDto.itemsId.map((itemUUID: string) => {
+        return { id: itemUUID } as Wish;
+      }),
+      owner: req.user.id,
+    });
   }
 
   @UseGuards(JwtGuard)
   @Get(':id')
   findOne(@Param('id', new ParseUUIDPipe()) uuid: string): Promise<Wishlist> {
-    return this.wishlistsService
-      .findOne({ where: { id: uuid }, relations: ['owner', 'items'] })
-      .then((wishlist: Wishlist) => {
-        if (!wishlist) throw new NotFoundException();
-        else return wishlist;
-      });
+    return this.wishlistsService.findOneById(uuid);
   }
 
   @UseGuards(JwtGuard)
   @Patch(':id')
   update(
+    @Req() req,
     @Param('id', new ParseUUIDPipe()) uuid: string,
     @Body() updateWishlistDto: UpdateWishlistDto,
   ): Promise<Wishlist> {
-    return this.wishlistsService
-      .findOne({ where: { id: uuid }, relations: ['owner'] })
-      .then((wishlist: Wishlist) => {
-        if (!wishlist) throw new NotFoundException();
-        if (wishlist.owner.id !== uuid) throw new ForbiddenException();
-        this.wishlistsService.update(uuid, updateWishlistDto);
-      })
-      .catch(() => {
-        throw new BadRequestException();
-      })
-      .then(() => {
-        return this.wishlistsService.findOne({ where: { id: uuid } });
-      });
+    return this.wishlistsService.update(uuid, req.user.id, {
+      ...updateWishlistDto,
+      items: updateWishlistDto.itemsId.map((wishId) => {
+        return { id: wishId } as Wish;
+      }),
+    });
   }
 
   @UseGuards(JwtGuard)
   @Delete(':id')
-  remove(@Param('id', new ParseUUIDPipe()) uuid: string) {
-    return this.wishlistsService
-      .findOne({ where: { id: uuid }, relations: ['owner'] })
-      .then((wishlist: Wishlist) => {
-        if (!wishlist) throw new NotFoundException();
-        if (wishlist.owner.id !== uuid) throw new ForbiddenException();
-        return this.wishlistsService.remove(uuid);
-      });
+  remove(@Req() req, @Param('id', new ParseUUIDPipe()) uuid: string) {
+    return this.wishlistsService.remove(uuid, req.user.id);
   }
 }

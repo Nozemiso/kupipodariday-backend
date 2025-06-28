@@ -7,7 +7,6 @@ import {
   Param,
   UseGuards,
   Req,
-  NotFoundException,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -36,7 +35,7 @@ export class UsersController {
   @UseGuards(JwtGuard)
   @Patch('me')
   updateMe(@Req() req, @Body() updateUserDto: UpdateUserDto): Promise<UserDTO> {
-    return this.usersService.updateOne({ id: req.user.id }, updateUserDto);
+    return this.usersService.updateOneById(req.user.id, updateUserDto);
   }
 
   @UseGuards(JwtGuard)
@@ -47,35 +46,16 @@ export class UsersController {
 
   @Post('find')
   getMany(@Body() findUserDTO: FindUsersDto): Promise<UserDTO[]> {
-    return this.usersService.findMany({
-      where: [{ username: findUserDTO.query }, { email: findUserDTO.query }],
-      select: [
-        'id',
-        'username',
-        'email',
-        'about',
-        'avatar',
-        'createdAt',
-        'updatedAt',
-      ],
-    });
+    return this.usersService.searchByUsernameEmail(findUserDTO.query);
   }
 
   @Get(':username')
   findByUsername(@Param('username') username: string): Promise<UserPublicDto> {
-    return this.usersService.findOneByUsername(username).then((user) => {
-      if (!user) throw new NotFoundException();
-      else return user;
-    });
+    return this.usersService.findOneByUsername(username);
   }
 
   @Get(':username/wishes')
   findWishesByUsername(@Param('username') username: string): Promise<Wish[]> {
-    return this.usersService
-      .findOne({ where: { username }, relations: ['wishes'] })
-      .then((user) => {
-        if (!user) throw new NotFoundException();
-        else return user.wishes;
-      });
+    return this.usersService.findWishesByUsername(username);
   }
 }

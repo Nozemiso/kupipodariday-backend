@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -7,6 +7,7 @@ import {
   FindManyOptions,
   FindOneOptions,
   FindOptionsWhere,
+  Like,
   Repository,
 } from 'typeorm';
 import * as bcrypt from 'bcrypt';
@@ -39,11 +40,38 @@ export class UsersService {
   }
 
   findOneByUsername(username: string) {
-    return this.findOne({ where: { username } });
+    return this.findOne({ where: { username } }).then((user) => {
+      if (!user) throw new NotFoundException();
+      else return user;
+    });
+  }
+
+  findWishesByUsername(username: string) {
+    return this.findOne({ where: { username }, relations: ['wishes'] }).then(
+      (user) => {
+        if (!user) throw new NotFoundException();
+        else return user.wishes;
+      },
+    );
   }
 
   findMany(options: FindManyOptions<User>) {
     return this.userRepository.find(options);
+  }
+
+  searchByUsernameEmail(query: string) {
+    return this.findMany({
+      where: [{ username: Like(`%${query}%`) }, { email: Like(`%${query}%`) }],
+      select: [
+        'id',
+        'username',
+        'email',
+        'about',
+        'avatar',
+        'createdAt',
+        'updatedAt',
+      ],
+    });
   }
 
   updateOne(options: FindOptionsWhere<User>, updateUserDto: UpdateUserDto) {
@@ -64,6 +92,10 @@ export class UsersService {
           return { ...userData, email: emailUserData.email };
         });
       });
+  }
+
+  updateOneById(id: string, updateUserDto: UpdateUserDto) {
+    return this.updateOne({ id }, updateUserDto);
   }
 
   deleteOne(options: FindOptionsWhere<User>) {
